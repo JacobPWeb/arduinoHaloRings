@@ -165,7 +165,7 @@ class Animations {
     }
     
     void randomColorFill() {
-     if (index == 0) {
+     if (subIndex == 0 && index == 0) {
       changeColorsRandom(); 
      }
      if (subIndex < NUMPIXELS - index) {
@@ -173,11 +173,12 @@ class Animations {
        ledStrip.setPixelColor(subIndex, ledStrip.Color(green, red, blue));
        ledStrip.show();
        subIndex++;
-     } else if ( index < NUMPIXELS ) {
+     } 
+     else if ( index < NUMPIXELS ) {
        index++;
        subIndex = 0;
-       changeColorsRandom(); 
-     } else {
+     } 
+     else {
        ledStrip.clear();
        ledStrip.show();
        index = 0;
