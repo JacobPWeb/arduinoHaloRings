@@ -12,6 +12,10 @@ int bluetoothTx = 10;  // TX-O pin of bluetooth
 int bluetoothRx = 9;  // RX-I pin of bluetooth
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 boolean rainbow = false;
+const byte numChars = 32;
+char receivedChars[numChars]; // an array to store the received data
+boolean newData = false;
+
 
 /* DRL and Indicator */
 boolean leftIsIndicating = false;
@@ -29,25 +33,54 @@ Adafruit_NeoPixel leftRing(16, 2, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel rightRing(16, 3, NEO_GRB + NEO_KHZ800);
 Animations strip1(leftRing, NUMPIXELS);
 Animations strip2(rightRing, NUMPIXELS);
+int green = 255;
+int red = 255;
+int blue = 255;
+char *colours[10];
 
 void setup() {
   bluetooth.begin(9600);
   strip2.lightSetup();
-  strip2.setActivePattern(RANDOMFILL);
+  strip2.setActivePattern(DRL);
   strip1.lightSetup();
-  strip1.setActivePattern(RANDOMFILL);
+  strip1.setActivePattern(DRL);
   pinMode(rightIndicatorInput, INPUT);
   pinMode(leftIndicatorInput, INPUT);
 }
 
 void readColorValues() {
-  String bluetoothVal = bluetooth.readString();
-  int green = getValue(bluetoothVal, ',', 0).toInt();
-  int blue = getValue(bluetoothVal, ',', 1).toInt();
-  int red = getValue(bluetoothVal, ',', 2).toInt();
-  strip1.changeColors(green, red, blue);
-  strip2.changeColors(green, red, blue);
+  /*static byte ndx = 0;
+  char endMarker = ';';
+  char colorSeparator = ',';
+  char rc;
+  char *token;
+  while (bluetooth.available() > 0 && newData == false) {
+    rc = bluetooth.read();
+    if (rc != endMarker) {
+      receivedChars[ndx] = rc;
+      ndx++;
+      if (ndx >= numChars) {
+        ndx = numChars - 1;
+      }
+    } else {
+      receivedChars[ndx] = '\0';
+      ndx = 0;
+      green = atoi(strtok(receivedChars, colorSeparator));
+      blue = atoi(strtok(receivedChars, colorSeparator));
+      red = atoi(strtok(receivedChars, colorSeparator));
+      
+    }
+  }*/
+  green = bluetooth.readStringUntil(',').toInt();
+  blue = bluetooth.readStringUntil(',').toInt();
+  red = bluetooth.readStringUntil(',').toInt();
 }
+
+void updateColorValues() {
+  strip1.changeColors(green, red, blue);
+  strip2.changeColors(green, red, blue); 
+}
+
 
 String getValue(String data, char separator, int index) {
   int found = 0;
@@ -65,33 +98,57 @@ String getValue(String data, char separator, int index) {
   return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-const byte numChars = 32;
-char receivedChars[numChars]; // an array to store the received data
-boolean newData = false;
+
 
 void parseCommand() {
   if (newData == true) {
     if (strcmp("color", receivedChars) == 0) {
-      //readColorValues();
-      //strip1.setActivePattern(SOLID);
-      //strip2.setActivePattern(SOLID);
-    } else if (strcmp("chase", receivedChars) == 0) {
+      // readColorValues();
+      updateColorValues();
+      strip1.setActivePattern(SOLID);
+      strip2.setActivePattern(SOLID);
+      bluetooth.println(receivedChars);
+      bluetooth.println(green);
+      bluetooth.println(red);
+      bluetooth.println(blue);
+      return;
+    }
+    else if (strcmp("solid", receivedChars) == 0) {
+      strip1.setActivePattern(SOLID);
+      strip2.setActivePattern(SOLID);
+      updateColorValues();
+    }
+    else if (strcmp("chase", receivedChars) == 0) {
       strip1.setActivePattern(CHASE);
       strip2.setActivePattern(CHASE);
-    } else if (strcmp("rainbow", receivedChars) == 0) {
+      updateColorValues();
+    } 
+    else if (strcmp("rainbow", receivedChars) == 0) {
       strip1.setActivePattern(RAINBOW);
       strip2.setActivePattern(RAINBOW);
-    } else if (strcmp("drl", receivedChars) == 0) {
+    } 
+    else if (strcmp("drl", receivedChars) == 0) {
       strip1.setActivePattern(DRL);
       strip2.setActivePattern(DRL);
-    } else if (strcmp("off", receivedChars) == 0) {
+    }
+    else if (strcmp("stars", receivedChars) == 0) {
+      strip1.setActivePattern(STARS);
+      strip2.setActivePattern(STARS);
+      updateColorValues();
+    }
+    else if (strcmp("off", receivedChars) == 0) {
       strip1.setActivePattern(OFF);
       strip2.setActivePattern(OFF);
       bluetoothOverride = false;
-    } else if (strcmp("randomfill", receivedChars) == 0) {
+    } 
+    else if (strcmp("randomfill", receivedChars) == 0) {
       strip1.setActivePattern(RANDOMFILL);
       strip2.setActivePattern(RANDOMFILL);
+    } else {
+      return; 
     }
+    strip1.turnOffRing();
+    strip2.turnOffRing();
     newData = false;
     strip1.resetBaseOperations();
     strip1.update();
@@ -101,12 +158,15 @@ void parseCommand() {
 }
 
 void loop() {
-   strip1.update();
-   strip2.update();
-   recieveWithEndMarker();
-   parseCommand();
+   if(bluetooth.available() == 0) {
+     strip1.update();
+     strip2.update();
+   } else {
+     recieveWithEndMarker();
+     parseCommand();
+   }
 
-    if ( digitalRead(rightIndicatorInput) == 1 && rightChanged != true) {
+    /*if ( digitalRead(rightIndicatorInput) == 1 && rightChanged != true) {
       strip2.setActivePattern(INDICATE);
       strip2.resetBaseOperations();
       strip2.update();
@@ -150,24 +210,32 @@ void loop() {
         strip1.resetBaseOperations();
         strip1.update();
       }
-    }
+    }*/
 }
 
 void recieveWithEndMarker() {
   static byte ndx = 0;
   char endMarker = ';';
+  char halfwayMarker = ':';
   char rc;
   while (bluetooth.available() > 0 && newData == false) {
     rc = bluetooth.read();
-    if (rc != endMarker) {
+    if (rc != endMarker && rc != halfwayMarker) {
       receivedChars[ndx] = rc;
       ndx++;
       if (ndx >= numChars) {
         ndx = numChars - 1;
       }
-    } else {
-      strip1.turnOffRing();
-      strip2.turnOffRing();
+    }
+    else if (rc == halfwayMarker) {
+       receivedChars[ndx] = '\0';
+       ndx = 0;
+       newData = true;
+       green = bluetooth.readStringUntil(',').toInt();
+       blue = bluetooth.readStringUntil(',').toInt();
+       red = bluetooth.readStringUntil(',').toInt();
+    } 
+    else {
       receivedChars[ndx] = '\0';
       ndx = 0;
       newData = true;

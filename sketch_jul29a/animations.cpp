@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
+#include <SoftwareSerial.h>
 
-enum pattern { RAINBOW, INDICATE, DRL, DEMO, SOLID, NONE, EMPTY, CHASE, OFF, RANDOMFILL };
+enum pattern { RAINBOW, INDICATE, DRL, DEMO, SOLID, NONE, EMPTY, CHASE, OFF, RANDOMFILL, STARS };
 
 class Animations {
   public:
@@ -21,6 +22,43 @@ class Animations {
     Animations (Adafruit_NeoPixel strip, int pixelStripSize) {
       NUMPIXELS = pixelStripSize;
       ledStrip = strip;
+    }
+    
+    void setActivePattern (pattern patternValue) {
+      activePattern = patternValue;
+      switch (activePattern) {
+        case DRL:
+          interval = 50;
+          break;
+        case SOLID:
+          interval = 50;
+          break;
+        case INDICATE:
+          interval = 50;
+          break;
+        case DEMO:
+          break;
+        case EMPTY:
+          interval = 100;
+          break;
+        case STARS:
+          interval = 40;
+          break;
+        case RAINBOW:
+          interval = 10;
+          break;
+        case RANDOMFILL:
+          interval = 30;
+          break;
+        case CHASE:
+          interval = 30;
+          break;
+        case OFF:
+          break;
+        default:
+          return;
+          break;
+      }     
     }
 
     void update() {   
@@ -44,6 +82,9 @@ class Animations {
             case EMPTY:
               emptyRing();
               break;
+            case STARS:
+              stars();
+              break;
             case RANDOMFILL:
               randomColorFill();
               break;
@@ -62,6 +103,24 @@ class Animations {
         }
       }
     }
+    
+    void stars() {
+      if (index < NUMPIXELS * 0.25) {
+        ledStrip.clear();
+        ledStrip.show();
+        int increment = NUMPIXELS * 0.25;
+        ledStrip.setPixelColor(index, ledStrip.Color(green, red, blue));
+        ledStrip.setPixelColor(index + (increment), ledStrip.Color(green, red, blue));
+        ledStrip.setPixelColor(index + (increment * 2), ledStrip.Color(green, red, blue));
+        ledStrip.setPixelColor(index + (increment * 3), ledStrip.Color(green, red, blue));
+        ledStrip.show();
+        index++;
+      }
+      else {
+        index = 0; 
+        stars();
+      }
+    }
 
     void fillUpRing() {
       if (index == 0) {
@@ -70,49 +129,17 @@ class Animations {
         ledStrip.setPixelColor(0, ledStrip.Color(green, red, blue));
         ledStrip.show();
         index++;
-      } else if (index != 0 && index < ( ( NUMPIXELS / 2 ) + 1 )) {
+      } 
+      else if (index != 0 && index < ( ( NUMPIXELS / 2 ) + 1 )) {
         ledStrip.setPixelColor(index, ledStrip.Color(green, red, blue));
         ledStrip.setPixelColor(NUMPIXELS - index, ledStrip.Color(green, red, blue));
         ledStrip.show();
         index++;
-      } else if ( index == ( ( NUMPIXELS / 2 ) + 1 )) {
+      } 
+      else if ( index == ( ( NUMPIXELS / 2 ) + 1 )) {
         index = 0;
         colorChanged = true;
       }
-    }
-
-    void setActivePattern (pattern patternValue) {
-      activePattern = patternValue;
-      switch (activePattern) {
-        case DRL:
-          interval = 50;
-          break;
-        case SOLID:
-          interval = 75;
-          break;
-        case INDICATE:
-          interval = 50;
-          break;
-        case DEMO:
-          break;
-        case EMPTY:
-          interval = 100;
-          break;
-        case RAINBOW:
-          interval = 0;
-          break;
-        case RANDOMFILL:
-          interval = 30;
-          break;
-        case CHASE:
-          interval = 30;
-          break;
-        case OFF:
-          break;
-        default:
-          return;
-          break;
-      }     
     }
     
     void resetBaseOperations () {
@@ -121,9 +148,7 @@ class Animations {
       index = 0;
       subIndex = 0;
     }
-    
-    
-  
+     
     void lightSetup() {
       ledStrip.begin();
       ledStrip.setBrightness(100);
@@ -135,12 +160,14 @@ class Animations {
         ledStrip.setPixelColor((NUMPIXELS / 2), ledStrip.Color(0, 0, 0));
         ledStrip.show();
         index++;
-      } else if (index != 0 && index < ( ( NUMPIXELS / 2 ) + 1 )) {
+      } 
+      else if (index != 0 && index < ( ( NUMPIXELS / 2 ) + 1 )) {
         ledStrip.setPixelColor((NUMPIXELS / 2) - index, ledStrip.Color(0, 0, 0));
         ledStrip.setPixelColor((NUMPIXELS / 2) + index, ledStrip.Color(0, 0, 0));
         ledStrip.show();
         index++;
-      } else if ( index == ( ( NUMPIXELS / 2 ) + 1 )) {
+      } 
+      else if ( index == ( ( NUMPIXELS / 2 ) + 1 )) {
         index = 0;
         colorChanged = true;
       }
@@ -187,22 +214,34 @@ class Animations {
    }
     
     void rainbowCycle() {
-      if (subIndex < 256) {  
+      if (index < 256) {  
+        for(int r=0; r < NUMPIXELS; r++) {
+          /*if ( bt->available() > 0 ) {
+            break;
+            return;
+          }*/
+          ledStrip.setPixelColor(r, Wheel(((r * 256 / NUMPIXELS) + index) & 255));
+        }
+        ledStrip.show();
+        index++;
+      } 
+      else {
+         index = 0; 
+      }
+      /*if (subIndex < 256) {  
         if (index < NUMPIXELS) {
           int wheelPos = ( (index * 256 / NUMPIXELS) + subIndex) & 255;
           ledStrip.setPixelColor(index, Wheel(wheelPos) );
           index++;
           ledStrip.show();
-          if ( (millis() - lastRainbowUpdate) > 2) {
-            subIndex++;
-            lastRainbowUpdate = millis();
-          }
+          subIndex++;
+          lastRainbowUpdate = millis();
         } else {
          index = 0; 
         }
       } else {
         subIndex = 0;
-      }
+      }*/
     }
         
     int getChasingIndex (int index, int increment) {
@@ -218,16 +257,23 @@ class Animations {
         ledStrip.clear();
         ledStrip.show();
         for (int i = 0; i < 6; i++) {
-          int newColor = 250/i;
+          /*if ( bt->available() > 0 ) {
+            break;
+            return;
+          }*/
+          int newGreen = green/i;
+          int newRed = red/i;
+          int newBlue = blue/i;
           int newIndex = index - i;
           if (newIndex < 0) {
             newIndex = NUMPIXELS - abs(newIndex);
           }
-          ledStrip.setPixelColor( newIndex, ledStrip.Color(0, newColor, 0) );
+          ledStrip.setPixelColor( newIndex, ledStrip.Color(newGreen, newRed, newBlue) );
         }
         ledStrip.show();
         index++;
-      } else {
+      } 
+      else {
         index = 0; 
         chasingAnimation();
       }
